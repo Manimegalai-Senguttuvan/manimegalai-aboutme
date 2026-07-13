@@ -283,6 +283,9 @@
     transition:transform .3s ease, box-shadow .3s ease;
   }
   .submit-btn:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(139,92,246,0.35);}
+  .submit-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none;}
+  .form-status{font-size:13px;color:var(--text-dim);min-height:18px;}
+  .form-status.error{color:#f87171;}
   @media(max-width:780px){.contact-grid{grid-template-columns:1fr;}}
 
   footer{
@@ -464,13 +467,14 @@
         </div>
       </div>
 
-      <form class="reveal" onsubmit="return handleSubmit(event)">
-        <div class="field"><input type="text" placeholder="Your name" required></div>
-        <div class="field"><input type="email" placeholder="Your email" required></div>
-        <div class="field"><textarea placeholder="Say hello, or tell me about the role..." required></textarea></div>
+      <form id="contact-form" class="reveal" onsubmit="return handleSubmit(event)" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+        <div class="field"><input type="text" name="name" placeholder="Your name" required></div>
+        <div class="field"><input type="email" name="email" placeholder="Your email" required></div>
+        <div class="field"><textarea name="message" placeholder="Say hello, or tell me about the role..." required></textarea></div>
         <button class="submit-btn" type="submit">Send message
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
         </button>
+        <div class="form-status" id="form-status"></div>
       </form>
     </div>
   </div>
@@ -546,11 +550,48 @@
 
   function handleSubmit(e){
     e.preventDefault();
-    const btn = e.target.querySelector('.submit-btn');
-    const original = btn.innerHTML;
-    btn.innerHTML = 'Message sent ✓';
-    btn.style.opacity = '0.85';
-    setTimeout(() => { btn.innerHTML = original; btn.style.opacity = '1'; e.target.reset(); }, 2200);
+    const form = e.target;
+    const btn = form.querySelector('.submit-btn');
+    const status = document.getElementById('form-status');
+    const originalBtn = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+    status.textContent = '';
+    status.classList.remove('error');
+
+    fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'Accept': 'application/json' }
+    })
+    .then(response => {
+      if (response.ok){
+        btn.innerHTML = 'Message sent ✓';
+        status.textContent = "Thanks — I'll get back to you soon.";
+        form.reset();
+      } else {
+        return response.json().then(data => {
+          throw new Error((data && data.errors) ? data.errors.map(x => x.message).join(', ') : 'Something went wrong.');
+        });
+      }
+    })
+    .catch(err => {
+      btn.innerHTML = 'Send message';
+      status.textContent = "Couldn't send — please try again or email me directly.";
+      status.classList.add('error');
+    })
+    .finally(() => {
+      setTimeout(() => {
+        if (!status.classList.contains('error')){
+          btn.innerHTML = originalBtn;
+          btn.disabled = false;
+        } else {
+          btn.disabled = false;
+        }
+      }, 2500);
+    });
+
     return false;
   }
 </script>
